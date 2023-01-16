@@ -49,6 +49,11 @@ public enum IppQueueAttrEnum {
     IPP_ROUTING_OPTIONS("ipp.routing.options"),
 
     /**
+     * JSON representation of IPP attribute/value {@link String}.
+     */
+    IPP_ROUTING_TARGET("ipp.routing.target"),
+
+    /**
      * Boolean: Y | N. When not present N is assumed.
      */
     JOURNAL_DISABLE("journal.disable"),

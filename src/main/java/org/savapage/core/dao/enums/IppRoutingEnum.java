@@ -41,7 +41,10 @@ public enum IppRoutingEnum {
     NONE,
 
     /** */
-    TERMINAL;
+    TERMINAL,
+
+    /** */
+    PRINTER;
 
     /**
      * @param locale
@@ -51,6 +54,8 @@ public enum IppRoutingEnum {
     public String uiText(final Locale locale) {
         if (this == NONE) {
             return AdjectiveEnum.NONE.uiText(locale);
+        } else if (this == PRINTER) {
+        return NounEnum.PRINTER.uiText(locale);
         }
         return NounEnum.TERMINAL.uiText(locale);
     }

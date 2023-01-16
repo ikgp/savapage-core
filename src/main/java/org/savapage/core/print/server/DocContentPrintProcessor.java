@@ -38,6 +38,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -50,6 +51,7 @@ import org.savapage.core.config.ConfigManager;
 import org.savapage.core.config.IConfigProp;
 import org.savapage.core.config.IConfigProp.Key;
 import org.savapage.core.config.OnOffEnum;
+import org.savapage.core.dao.PrinterDao;
 import org.savapage.core.dao.UserDao;
 import org.savapage.core.dao.enums.ACLOidEnum;
 import org.savapage.core.dao.enums.DocLogProtocolEnum;
@@ -1579,45 +1581,63 @@ public final class DocContentPrintProcessor {
             return false;
         }
 
-        if (routing != IppRoutingEnum.TERMINAL) {
+        if (routing == IppRoutingEnum.TERMINAL) {
+            final Device terminal =
+                    DEVICE_SERVICE.getHostTerminal(this.originatorIp);
+
+            final String warnMsg;
+
+            if (terminal == null) {
+                warnMsg = ": terminal not found.";
+            } else if (BooleanUtils.isTrue(terminal.getDisabled())) {
+                warnMsg = ": terminal disabled.";
+            } else {
+                final Printer printer = terminal.getPrinter();
+                if (printer == null) {
+                    warnMsg = ": no printer on terminal.";
+                } else {
+                    warnMsg = null;
+                }
+            }
+
+            if (warnMsg != null) {
+                final String msg =
+                        String.format("IPP Routing of Queue /%s from %s %s",
+                                queueWrk.getUrlPath(), this.originatorIp, warnMsg);
+                AdminPublisher.instance().publish(PubTopicEnum.PROXY_PRINT,
+                        PubLevelEnum.WARN, msg);
+                LOGGER.warn(msg);
+                return false;
+            }
+
+            try {
+                PROXYPRINT_SERVICE.proxyPrintIppRouting(this.userDb, queueWrk,
+                        terminal.getPrinter(), printInInfo, pdfFile,
+                        this.ippRoutinglistener);
+            } catch (ProxyPrintException e) {
+                throw new SpException(e.getMessage());
+            }
+        } else if (routing == IppRoutingEnum.PRINTER) {
+            final Map<String, String> routingOptions =  QUEUE_SERVICE.getIppRoutingOptions(queueWrk);
+            final String printerName = routingOptions.get("printerName");
+            if (StringUtils.isBlank(printerName)) {
+                throw new SpException(
+                        "IPP Routing of Queue /" + queueWrk.getUrlPath()
+                                + " from " + this.originatorIp
+                                + ": no printer name defined.");
+            }
+            final PrinterDao printerDao = ServiceContext.getDaoContext().getPrinterDao();
+            final Printer printer = printerDao.findByName(printerName);
+            try {
+                PROXYPRINT_SERVICE.proxyPrintIppRouting(this.userDb, queueWrk,
+                    printer, printInInfo, pdfFile,
+                        this.ippRoutinglistener);
+            } catch (ProxyPrintException e) {
+                throw new SpException(e.getMessage());
+            }
+        } else {
             throw new SpException(String.format(
                     "IPP Routing [%s] is not supported", routing.toString()));
-        }
-
-        final Device terminal =
-                DEVICE_SERVICE.getHostTerminal(this.originatorIp);
-
-        final String warnMsg;
-
-        if (terminal == null) {
-            warnMsg = ": terminal not found.";
-        } else if (BooleanUtils.isTrue(terminal.getDisabled())) {
-            warnMsg = ": terminal disabled.";
-        } else {
-            final Printer printer = terminal.getPrinter();
-            if (printer == null) {
-                warnMsg = ": no printer on terminal.";
-            } else {
-                warnMsg = null;
-            }
-        }
-
-        if (warnMsg != null) {
-            final String msg =
-                    String.format("IPP Routing of Queue /%s from %s %s",
-                            queueWrk.getUrlPath(), this.originatorIp, warnMsg);
-            AdminPublisher.instance().publish(PubTopicEnum.PROXY_PRINT,
-                    PubLevelEnum.WARN, msg);
-            LOGGER.warn(msg);
-            return false;
-        }
-
-        try {
-            PROXYPRINT_SERVICE.proxyPrintIppRouting(this.userDb, queueWrk,
-                    terminal.getPrinter(), printInInfo, pdfFile,
-                    this.ippRoutinglistener);
-        } catch (ProxyPrintException e) {
-            throw new SpException(e.getMessage());
         }
 
         return true;

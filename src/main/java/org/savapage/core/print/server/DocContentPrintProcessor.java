@@ -1618,8 +1618,7 @@ public final class DocContentPrintProcessor {
                 throw new SpException(e.getMessage());
             }
         } else if (routing == IppRoutingEnum.PRINTER) {
-            final Map<String, String> routingOptions =  QUEUE_SERVICE.getIppRoutingOptions(queueWrk);
-            final String printerName = routingOptions.get("printerName");
+            final String printerName =  QUEUE_SERVICE.getIppRoutingTarget(queueWrk);
             if (StringUtils.isBlank(printerName)) {
                 throw new SpException(
                         "IPP Routing of Queue /" + queueWrk.getUrlPath()
